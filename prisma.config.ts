@@ -4,15 +4,16 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-// Note: the datasource (url + directUrl) is declared in prisma/schema.prisma
-// via env(). It is intentionally NOT repeated here — Prisma's env() helper in
-// this config file throws at load time if the var is missing, which breaks
-// `prisma generate` during the Vercel install phase (where DATABASE_URL isn't
-// in scope yet). `generate` doesn't need a DB connection anyway.
+// Note: `engine` and the `datasource` block are intentionally omitted.
+// Declaring `engine: "classic"` makes the PrismaConfig type *require* a
+// `datasource: { url: string }` here, and Prisma's env() helper for that url
+// throws PrismaConfigEnvError at config-load time if DATABASE_URL is missing
+// (e.g. Vercel's install phase, where `prisma generate` runs via postinstall).
+// With `engine` omitted, Prisma uses its default schema engine and reads the
+// datasource (url + directUrl) straight from prisma/schema.prisma's env().
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
-  engine: "classic",
 });
