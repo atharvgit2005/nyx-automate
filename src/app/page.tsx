@@ -6,7 +6,7 @@ export const metadata: Metadata = createMarketingMetadata({
   title: 'AI Content Automation for D2C Brands',
   description:
     'NYX Studio\'s AI pipeline automates end-to-end content production - scripts, voiceovers, video, and distribution. Scale your content output without scaling your team.',
-  path: '/automate',
+  path: '/',
   openGraphTitle: 'AI Content Automation for D2C Brands | NYX Studio',
   openGraphDescription:
     'Automate scripts, voiceovers, video, and distribution. Scale content without scaling headcount.',

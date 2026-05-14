@@ -19,7 +19,7 @@ export default function SignupClient() {
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
-        if (session) router.push('/automate/dashboard');
+        if (session) router.push('/dashboard');
     }, [session, router]);
 
     const handleSignup = async (e: React.FormEvent) => {
@@ -49,7 +49,7 @@ export default function SignupClient() {
 
             const result = await signIn('credentials', {
                 redirect: true,
-                callbackUrl: '/automate/dashboard',
+                callbackUrl: '/dashboard',
                 email,
                 password,
             });
@@ -95,7 +95,7 @@ export default function SignupClient() {
                 </button>
             </form>
 
-            <SocialChannels callbackUrl="/automate/dashboard" />
+            <SocialChannels callbackUrl="/dashboard" />
         </AuthShell>
     );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-export const SITE_URL = "https://www.nyxstudio.tech";
+export const SITE_URL = "https://automate.nyxstudio.tech";
 
 export const defaultOgImage = {
   url: "/og-image.jpg",

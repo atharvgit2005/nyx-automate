@@ -103,7 +103,7 @@ function LoginContent({ defaultCallbackUrl }: { defaultCallbackUrl: string }) {
             <p className="text-[11px] text-[#ab8981] italic" style={{ fontFamily: 'var(--font-work-sans), sans-serif' }}>
                 Don&apos;t have an account?{' '}
                 <Link
-                    href={isPortalFlow ? '/portal/signup' : '/automate/signup'}
+                    href={isPortalFlow ? '/portal/signup' : '/signup'}
                     className="text-[#E8441A] hover:underline decoration-2 underline-offset-4 not-italic"
                 >
                     {isPortalFlow ? 'Request access' : 'Sign up'}
@@ -117,7 +117,7 @@ function LoginContent({ defaultCallbackUrl }: { defaultCallbackUrl: string }) {
 }
 
 export default function LoginClient({
-    defaultCallbackUrl = '/automate/dashboard',
+    defaultCallbackUrl = '/dashboard',
 }: { defaultCallbackUrl?: string } = {}) {
     return (
         <Suspense fallback={<div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center text-[#e5e2e1]">Loading…</div>}>
@@ -145,12 +145,12 @@ export function AuthShell({
     children: React.ReactNode;
 }) {
     // Tab hrefs need to point at whichever flow the user is currently in.
-    // Hardcoded /automate/* hrefs used to bounce portal users to the automate
+    // Hardcoded /* hrefs used to bounce portal users to the automate
     // subdomain via the next.config redirect.
     const pathname = usePathname();
     const isPortal = portalFlow ?? pathname?.startsWith('/portal') ?? false;
-    const loginHref = isPortal ? '/portal/login' : '/automate/login';
-    const signupHref = isPortal ? '/portal/signup' : '/automate/signup';
+    const loginHref = isPortal ? '/portal/login' : '/login';
+    const signupHref = isPortal ? '/portal/signup' : '/signup';
     const heading = mode === 'login' ? 'OPERATOR LOGIN' : 'INITIATE OPERATOR';
     const subheading =
         mode === 'login'

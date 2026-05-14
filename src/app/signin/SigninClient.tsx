@@ -24,7 +24,7 @@ export default function SigninClient() {
                     <p className="text-theme-secondary text-center mb-8">Sign in to continue to your dashboard</p>
 
                     <button
-                        onClick={() => signIn("google", { callbackUrl: "/automate/dashboard" })}
+                        onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
                         className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white text-gray-900 rounded-xl font-semibold hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] duration-300"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
@@ -38,7 +38,7 @@ export default function SigninClient() {
 
                     <div className="mt-6 text-center text-sm text-theme-secondary">
                         Don&apos;t have an account?{" "}
-                        <Link href="/automate/signup" className="text-orange-500 hover:text-orange-400 font-medium">
+                        <Link href="/signup" className="text-orange-500 hover:text-orange-400 font-medium">
                             Sign up
                         </Link>
                     </div>

@@ -140,7 +140,7 @@ export default function BrandAnalysis() {
                     Please connect an Instagram or YouTube account to enable AI brand analysis.
                 </p>
                 <NyxButton
-                    href="/automate/dashboard/connect"
+                    href="/dashboard/connect"
                     icon={LinkIcon}
                     className="px-8 py-4"
                 >

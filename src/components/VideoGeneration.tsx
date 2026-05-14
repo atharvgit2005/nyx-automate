@@ -207,11 +207,11 @@ export default function VideoGeneration() {
                                             <p className="text-theme-primary font-mono text-xs break-all">{avatarId}</p>
                                         </>
                                     ) : (
-                                        <p className="text-sm text-theme-secondary">No avatar set. <Link href="/automate/dashboard/avatar" className="text-theme-primary underline font-bold">Set Avatar ID →</Link></p>
+                                        <p className="text-sm text-theme-secondary">No avatar set. <Link href="/dashboard/avatar" className="text-theme-primary underline font-bold">Set Avatar ID →</Link></p>
                                     )}
                                 </div>
                                 {avatarId && (
-                                    <Link href="/automate/dashboard/avatar" className="text-[10px] text-gray-600 hover:text-theme-secondary underline mt-2 block">Change Avatar ID</Link>
+                                    <Link href="/dashboard/avatar" className="text-[10px] text-gray-600 hover:text-theme-secondary underline mt-2 block">Change Avatar ID</Link>
                                 )}
                             </div>
 

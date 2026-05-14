@@ -286,7 +286,7 @@ Comment "AI" below and I'll send you the full list of tools I use.`
             setHasUnsavedChanges(false);
             setTimeout(() => {
                 setShowToast(false);
-                window.location.href = '/automate/dashboard/video';
+                window.location.href = '/dashboard/video';
             }, 1500);
         } catch { }
     };
@@ -350,7 +350,7 @@ Comment "AI" below and I'll send you the full list of tools I use.`
                         </div>
                     </div>
                     <Link
-                        href="/automate/dashboard/ideas"
+                        href="/dashboard/ideas"
                         className="w-full sm:w-auto text-center text-xs font-bold text-theme-primary hover:text-theme-secondary transition-colors px-4 py-2 rounded-lg bg-card-hover border border-theme flex items-center justify-center gap-1"
                     >
                         Back to Ideas <ArrowRight className="w-3 h-3" />
@@ -370,7 +370,7 @@ Comment "AI" below and I'll send you the full list of tools I use.`
                         </div>
                     </div>
                     <NyxButton
-                        href="/automate/dashboard/ideas"
+                        href="/dashboard/ideas"
                         className="w-full sm:w-auto py-1.5 px-4 text-xs justify-center"
                     >
                         GENERATE IDEAS
