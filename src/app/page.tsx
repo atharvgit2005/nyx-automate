@@ -1,24 +1,7 @@
-import type { Metadata } from "next";
-import LandingPage from '@/components/LandingPage';
-import { createMarketingMetadata } from "@/lib/seo";
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = createMarketingMetadata({
-  title: 'AI Content Automation for D2C Brands',
-  description:
-    'NYX Studio\'s AI pipeline automates end-to-end content production - scripts, voiceovers, video, and distribution. Scale your content output without scaling your team.',
-  path: '/',
-  openGraphTitle: 'AI Content Automation for D2C Brands | NYX Studio',
-  openGraphDescription:
-    'Automate scripts, voiceovers, video, and distribution. Scale content without scaling headcount.',
-  twitterTitle: 'AI Content Automation for D2C Brands | NYX Studio',
-  twitterDescription:
-    'Automate scripts, voiceovers, video, and distribution. Scale content without scaling headcount.',
-});
-
+// NYX is now an internal admin tool — no public marketing landing.
+// Send everyone to the dashboard; middleware gates unauthenticated users to /login.
 export default function Home() {
-  return (
-    <main>
-      <LandingPage />
-    </main>
-  );
+    redirect('/dashboard');
 }

@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// NYX Automate — standalone schema. Forked from the NYX monorepo on the
+// product split: this DB owns auth + Automate domain models only. The
+// marketing site / brand-partner portal models live in the NYX repo's DB.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          String    @default("user") // "user" | "admin"
+  country       String?   @default("Unknown")
+  avatarUrl     String? // Avaturn 3D avatar GLB URL
+  avatarConfig  Json? // Custom in-house avatar configuration
+  accounts      Account[]
+  sessions      Session[]
+
+  // Security Fields
+  passwordChangedAt DateTime? @default(now())
+  failedAttempts    Int       @default(0)
+  lockUntil         DateTime?
+  activeSessionId   String?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  scripts      Script[]
+  videos       Video[]
+  subscription Subscription?
+}
+
+model RevokedToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model LoginAttempt {
+  id          String   @id @default(cuid())
+  ip          String
+  email       String?
+  count       Int      @default(1)
+  lastAttempt DateTime @default(now())
+
+  @@unique([ip, email])
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier          String   @default("Free")
+  status        String   @default("pending") // active | pending | paused | cancelled | restricted
+  paymentStatus String   @default("pending") // paid | pending | failed | refunded
+  features      Json // Default removed for SQLite compatibility
+  startDate     DateTime @default(now())
+  renewalDate   DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Tier {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  price        Float
+  billingCycle String // monthly | annual
+  trialDays    Int
+  maxUsers     Int
+  features     Json // { voice: boolean, video: boolean, api: boolean, priority: boolean }
+  quotas       Json // { voiceCharsPerDay: number, videoMinsPerMonth: number, apiCallsPerDay: number, storageMB: number }
+  approvalMode String // auto | manual
+  color        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  admin     String
+  action    String
+  target    String
+  details   String
+  category  String // subscription | user | tier | gate | alert
+  createdAt DateTime @default(now())
+}
+
+model FeatureGate {
+  id        String   @id @default(cuid())
+  key       String   @unique // voiceGlobal | videoGlobal | tierMatrix
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Script {
+  id        String   @id @default(cuid())
+  title     String?
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  videos    Video[]
+}
+
+model Video {
+  id        String   @id @default(cuid())
+  status    String // processing, completed, failed
+  url       String?
+  scriptId  String?
+  script    Script?  @relation(fields: [scriptId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

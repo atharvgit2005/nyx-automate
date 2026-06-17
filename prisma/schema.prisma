@@ -1,9 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// NYX Automate — schema (Image-Studio pivot).
 //
-// NYX Automate — standalone schema. Forked from the NYX monorepo on the
-// product split: this DB owns auth + Automate domain models only. The
-// marketing site / brand-partner portal models live in the NYX repo's DB.
+// PLACEHOLDER / minimal. The old SaaS schema (subscriptions, tiers, feature
+// gates, scripts, videos, audit logs) lives in `prisma/schema.legacy.prisma`
+// for reference — re-introduce models from there as features come back.
+//
+// Datasource points at a NEW Supabase Postgres that has NOT been provisioned
+// yet — DATABASE_URL / DIRECT_URL in .env are placeholders. Auth is currently
+// database-FREE (Google + allowlist, JWT — see src/lib/auth.ts), so the app
+// runs without a live DB. Wire the DB when these models are actually used.
 
 generator client {
   provider      = "prisma-client-js"
@@ -16,94 +20,26 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ── NextAuth models (used once the Prisma adapter is re-enabled) ──────────
+
 model User {
   id            String    @id @default(cuid())
   name          String?
   email         String    @unique
   emailVerified DateTime?
-  password      String?
   image         String?
   role          String    @default("user") // "user" | "admin"
-  country       String?   @default("Unknown")
-  avatarUrl     String? // Avaturn 3D avatar GLB URL
-  avatarConfig  Json? // Custom in-house avatar configuration
-  accounts      Account[]
-  sessions      Session[]
 
-  // Security Fields
-  passwordChangedAt DateTime? @default(now())
-  failedAttempts    Int       @default(0)
-  lockUntil         DateTime?
-  activeSessionId   String?
+  // Parked voice/avatar feature still reads these.
+  avatarUrl    String?
+  avatarConfig Json?
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  scripts      Script[]
-  videos       Video[]
-  subscription Subscription?
-}
+  accounts Account[]
+  sessions Session[]
 
-model RevokedToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}
-
-model LoginAttempt {
-  id          String   @id @default(cuid())
-  ip          String
-  email       String?
-  count       Int      @default(1)
-  lastAttempt DateTime @default(now())
-
-  @@unique([ip, email])
-}
-
-model Subscription {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tier          String   @default("Free")
-  status        String   @default("pending") // active | pending | paused | cancelled | restricted
-  paymentStatus String   @default("pending") // paid | pending | failed | refunded
-  features      Json     @default("{\"voice\":false,\"video\":false,\"api\":false,\"priority\":false}")
-  startDate     DateTime @default(now())
-  renewalDate   DateTime
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model Tier {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  price        Float
-  billingCycle String // monthly | annual
-  trialDays    Int
-  maxUsers     Int
-  features     Json // { voice: boolean, video: boolean, api: boolean, priority: boolean }
-  quotas       Json // { voiceCharsPerDay: number, videoMinsPerMonth: number, apiCallsPerDay: number, storageMB: number }
-  approvalMode String // auto | manual
-  color        String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  admin     String
-  action    String
-  target    String
-  details   String
-  category  String // subscription | user | tier | gate | alert
-  createdAt DateTime @default(now())
-}
-
-model FeatureGate {
-  id        String   @id @default(cuid())
-  key       String   @unique // voiceGlobal | videoGlobal | tierMatrix
-  value     Json
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  generations Generation[]
 }
 
 model Account {
@@ -141,25 +77,16 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Script {
-  id        String   @id @default(cuid())
-  title     String?
-  content   String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  videos    Video[]
-}
+// ── Image Studio (starter; expand as generation lands) ────────────────────
 
-model Video {
+model Generation {
   id        String   @id @default(cuid())
-  status    String // processing, completed, failed
-  url       String?
-  scriptId  String?
-  script    Script?  @relation(fields: [scriptId], references: [id])
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model     String // "gpt-image-1" | "gemini-image" | "flux" | …
+  prompt    String
+  aspect    String?
+  imageUrl  String?
+  status    String   @default("pending") // pending | completed | failed
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

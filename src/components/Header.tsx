@@ -36,7 +36,7 @@ export default function Header() {
                     <Menu className="w-6 h-6" />
                 </button>
 
-                <Link href="/" className="flex items-center gap-3 group" aria-label="NYX Studio Home">
+                <Link href="/dashboard" className="flex items-center gap-3 group" aria-label="NYX Studio Home">
                     <div className="w-8 h-8 relative flex-shrink-0">
                         <Image src="/logo/NYX-Logo.png" alt="NYX Studio logo" width={120} height={40} className="h-full w-full object-contain" unoptimized sizes="32px" />
                     </div>
@@ -100,11 +100,11 @@ export default function Header() {
                                     href={item.href}
                                     onClick={() => setMobileMenuOpen(false)}
                                     className={`group flex items-center px-4 py-3.5 text-base font-bold rounded-2xl transition-all duration-300 ${isActive
-                                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-xl shadow-orange-500/30'
-                                        : 'text-theme-secondary hover:bg-orange-500/10 hover:text-orange-500'
+                                        ? 'bg-purple-600 text-white shadow-xl'
+                                        : 'text-theme-secondary hover:bg-white/5 hover:text-purple-500'
                                         }`}
                                 >
-                                    <Icon className={`mr-4 h-5 w-5 transition-all duration-300 ${isActive ? 'text-white scale-110' : 'text-theme-secondary group-hover:text-orange-500'}`} />
+                                    <Icon className={`mr-4 h-5 w-5 transition-all duration-300 ${isActive ? 'text-white scale-110' : 'text-theme-secondary group-hover:text-purple-500'}`} />
                                     {item.name}
                                 </Link>
                             );
