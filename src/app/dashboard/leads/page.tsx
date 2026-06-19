@@ -92,8 +92,10 @@ export default function LeadsBoard() {
                 </select>
                 <select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} className="bg-secondary border border-theme rounded-lg px-3 py-2 text-sm text-theme-primary">
                     <option value="">All sources</option>
-                    <option value="csv">csv</option>
+                    <option value="openstreetmap">openstreetmap</option>
+                    <option value="yelp">yelp</option>
                     <option value="google_places">google_places</option>
+                    <option value="csv">csv</option>
                 </select>
                 <select value={filters.hasEmail} onChange={(e) => setFilters((f) => ({ ...f, hasEmail: e.target.value }))} className="bg-secondary border border-theme rounded-lg px-3 py-2 text-sm text-theme-primary">
                     <option value="">Any email</option>

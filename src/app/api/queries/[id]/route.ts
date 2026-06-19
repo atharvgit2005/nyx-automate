@@ -5,7 +5,7 @@ import { isAdminRequest } from '@/lib/leads/guard';
 
 export const runtime = 'nodejs';
 
-const VALID_SOURCES = ['csv', 'google_places'];
+const VALID_SOURCES = ['csv', 'google_places', 'openstreetmap', 'yelp'];
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     if (!(await isAdminRequest())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

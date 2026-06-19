@@ -22,8 +22,10 @@ type Run = {
 };
 
 const SOURCES = [
-    { id: 'csv', label: 'CSV import' },
+    { id: 'openstreetmap', label: 'OpenStreetMap (free)' },
+    { id: 'yelp', label: 'Yelp' },
     { id: 'google_places', label: 'Google Places' },
+    { id: 'csv', label: 'CSV import' },
 ];
 
 const RUN_STATUS: Record<string, string> = {
@@ -36,7 +38,7 @@ export default function QueriesPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [text, setText] = useState('');
     const [region, setRegion] = useState('');
-    const [sources, setSources] = useState<string[]>(['google_places']);
+    const [sources, setSources] = useState<string[]>(['openstreetmap']);
     const [busy, setBusy] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
 
