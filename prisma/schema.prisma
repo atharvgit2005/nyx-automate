@@ -90,3 +90,59 @@ model Generation {
   status    String   @default("pending") // pending | completed | failed
   createdAt DateTime @default(now())
 }
+
+// ── Lead pipeline (sources → scoring → verification → portal) ─────────────
+
+model ScrapeQuery {
+  id        String      @id @default(cuid())
+  text      String
+  region    String? // ISO country/region code
+  sources   String[] // "csv" | "google_places"
+  filters   Json?
+  enabled   Boolean     @default(true)
+  brandId   String? // TODO: scope when workspaces exist
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  runs      ScrapeRun[]
+  leads     Lead[]
+}
+
+model ScrapeRun {
+  id         String      @id @default(cuid())
+  queryId    String
+  query      ScrapeQuery @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  status     String      @default("queued") // queued | running | done | failed
+  leadCount  Int         @default(0)
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime    @default(now())
+}
+
+model Lead {
+  id           String       @id @default(cuid())
+  source       String // "csv" | "google_places"
+  sourceId     String
+  name         String
+  website      String?
+  email        String?
+  phone        String?
+  contactName  String?
+  contactTitle String?
+  instagram    String?
+  category     String?
+  address      String?
+  score        Int          @default(0)
+  signals      String[]
+  status       String       @default("new") // new | verified | contacted | replied | won | dead
+  emailValid   Boolean?
+  brandId      String? // TODO: scope when workspaces exist
+  queryId      String?
+  query        ScrapeQuery? @relation(fields: [queryId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([source, sourceId])
+  @@index([score])
+  @@index([status])
+}

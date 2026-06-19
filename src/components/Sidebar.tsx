@@ -10,6 +10,7 @@ import {
     Sparkles,
     BrainCircuit,
     TrendingUp,
+    Target,
     Mic,
     MoreHorizontal,
     LogOut
@@ -18,6 +19,7 @@ import {
 export const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Image Studio', href: '/dashboard/studio', icon: Sparkles },
+    { name: 'Leads', href: '/dashboard/leads', icon: Target },
     { name: 'Brand Analysis', href: '/dashboard/analysis', icon: BrainCircuit },
     { name: 'Trends', href: '/dashboard/trends', icon: TrendingUp },
     { name: 'Voice', href: '/dashboard/avatar', icon: Mic, soon: true },
