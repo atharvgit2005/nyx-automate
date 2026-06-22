@@ -42,6 +42,12 @@ interface WinnerPost {
     format: string; hook: string; topic: string; whyItWorked: string;
 }
 interface WinnerResult { topPosts: WinnerPost[]; patterns: string[]; recommendations: string[]; scanned: number; provider?: string }
+interface Breakout {
+    shortcode: string; url: string; ownerUsername: string; caption: string; displayUrl: string;
+    likesCount: number; commentsCount: number; videoViewCount: number; isVideo: boolean;
+    engagement: number; baseline: number; spike: number; timestamp: string;
+}
+interface RadarResult { breakouts: Breakout[]; summary: string; scanned: number; provider?: string }
 
 const IG_GRADIENT = 'linear-gradient(45deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)';
 
@@ -69,8 +75,9 @@ export default function Trends() {
     const [error, setError] = useState('');
     const [hasSession, setHasSession] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
-    const [mode, setMode] = useState<'sentiment' | 'winners'>('sentiment');
+    const [mode, setMode] = useState<'sentiment' | 'winners' | 'radar'>('sentiment');
     const [winners, setWinners] = useState<WinnerResult | null>(null);
+    const [radar, setRadar] = useState<RadarResult | null>(null);
 
     async function scan() {
         const tokens = query.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
@@ -102,7 +109,25 @@ export default function Trends() {
             return;
         }
 
-        setWinners(null);
+        if (mode === 'radar') {
+            setPosts([]); setRadar(null);
+            try {
+                if (!profiles.length) throw new Error('Trend radar watches profiles — enter @handles to watch.');
+                const res = await fetch('/api/insights/radar', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ handles: profiles, perAccount: limit, threshold: 1.5, sinceDays: 45 }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Radar failed');
+                setRadar(data);
+                if (!data.breakouts?.length) setError(`No breakouts — nothing is spiking above normal for ${profiles.map((p) => '@' + p).join(', ')} right now.`);
+            } catch (e) {
+                setError(e instanceof Error ? e.message : 'Radar failed'); setRadar(null);
+            } finally { setLoading(false); }
+            return;
+        }
+
+        setWinners(null); setRadar(null);
         try {
             const res = await fetch('/api/scrape/instagram', {
                 method: 'POST',
@@ -139,7 +164,7 @@ export default function Trends() {
 
             {/* Mode toggle */}
             <div className="flex gap-2 mb-4">
-                {([['sentiment', 'Read the room'], ['winners', "What's working"]] as const).map(([m, label]) => (
+                {([['sentiment', 'Read the room'], ['winners', "What's working"], ['radar', 'Trending now']] as const).map(([m, label]) => (
                     <button
                         key={m}
                         onClick={() => { setMode(m); setError(''); }}
@@ -150,7 +175,7 @@ export default function Trends() {
                     </button>
                 ))}
                 <span className="self-center text-[11px] text-theme-secondary ml-1">
-                    {mode === 'sentiment' ? 'comments → AI sentiment' : 'rank top posts → why they work'}
+                    {mode === 'sentiment' ? 'comments → AI sentiment' : mode === 'winners' ? 'rank top posts → why they work' : 'posts spiking above their account’s normal'}
                 </span>
             </div>
 
@@ -226,6 +251,8 @@ export default function Trends() {
             )}
 
             {!loading && winners && winners.topPosts.length > 0 && <WinnersView data={winners} />}
+
+            {!loading && radar && radar.breakouts.length > 0 && <RadarView data={radar} />}
 
             {!loading && !scanned && (
                 <div className="bg-card-theme border border-theme rounded-2xl p-12 flex flex-col items-center text-center">
@@ -428,6 +455,32 @@ function SentimentPanel({ s }: { s: Sentiment }) {
                 </ul>
             )}
             {s.provider && <p className="text-[10px] text-theme-secondary/70">via {s.provider}</p>}
+        </div>
+    );
+}
+
+function RadarView({ data }: { data: RadarResult }) {
+    return (
+        <div className="space-y-4">
+            {data.summary && (
+                <div className="bg-card-theme border border-theme rounded-2xl p-4">
+                    <div className="flex items-center gap-2 mb-1"><Flame className="h-4 w-4" style={{ color: '#dc2743' }} /><h3 className="font-bold text-theme-primary text-sm">Trending right now</h3></div>
+                    <p className="text-sm text-theme-secondary leading-relaxed">{data.summary}</p>
+                </div>
+            )}
+            <p className="text-xs text-theme-secondary">{data.breakouts.length} breakouts from {data.scanned} posts scanned</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {data.breakouts.map((b) => (
+                    <div key={b.shortcode} className="bg-card-theme border border-theme rounded-2xl p-4 flex gap-3">
+                        <span className="shrink-0 self-start flex items-center gap-1 text-xs font-bold text-white px-2 py-1 rounded-md" style={{ background: IG_GRADIENT }}><Flame className="h-3 w-3" /> {b.spike}x</span>
+                        <div className="min-w-0 flex-1">
+                            <a href={b.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-theme-primary hover:underline">@{b.ownerUsername}</a>
+                            <p className="text-[11px] text-theme-secondary">{compact(b.likesCount)} likes · {b.isVideo ? 'reel' : 'photo'} · {timeAgo(b.timestamp)} ago · {b.spike}x its usual</p>
+                            <p className="text-sm text-theme-primary mt-1 line-clamp-2">{b.caption || <span className="text-theme-secondary">No caption</span>}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

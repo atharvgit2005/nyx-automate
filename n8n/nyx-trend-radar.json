@@ -1,0 +1,72 @@
+{
+  "name": "NYX — Trend Radar (daily breakout watch)",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [ { "field": "days", "daysInterval": 1, "triggerAtHour": 8 } ] } },
+      "id": "sched", "name": "Daily 8am", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "__rl": true, "value": "appcVqNbt8fyF1Dxv", "mode": "id" },
+        "table": { "__rl": true, "value": "tblTmDxHZoXPDYRR2", "mode": "id" },
+        "filterByFormula": "AND({Channel}='Instagram', {Type}='Profile', {Active}='Active')",
+        "options": {}
+      },
+      "id": "watch", "name": "Watched profiles", "type": "n8n-nodes-base.airtable", "typeVersion": 2.1, "position": [220, 300],
+      "credentials": { "airtableTokenApi": { "id": "v8nbb55IZ67wnXmz", "name": "NYX Airtable" } }
+    },
+    {
+      "parameters": { "jsCode": "const handles = items.map(i => (i.json['Hashtag/ Username'] || i.json['Hashtag/Username'] || '')).filter(Boolean);\nreturn [{ json: { handles } }];" },
+      "id": "collect", "name": "Collect handles", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/insights/radar",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ handles: $json.handles, threshold: 1.6, sinceDays: 14, perAccount: 12 }) }}",
+        "options": { "response": { "response": { "neverError": true } }, "timeout": 120000 }
+      },
+      "id": "radar", "name": "App: Radar scan", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, 300],
+      "credentials": { "httpHeaderAuth": { "id": "A2qInC7YaPq9T3H2", "name": "NYX engine token" } }
+    },
+    {
+      "parameters": { "jsCode": "return ($json.breakouts || []).map(b => ({ json: b }));" },
+      "id": "split", "name": "Split breakouts", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "__rl": true, "value": "appcVqNbt8fyF1Dxv", "mode": "id" },
+        "table": { "__rl": true, "value": "tbl7rsFeYyQoSQxuq", "mode": "id" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post": "={{ $json.shortcode }}",
+            "Account": "={{ $json.ownerUsername }}",
+            "Spike": "={{ $json.spike }}",
+            "Likes": "={{ $json.likesCount }}",
+            "Caption": "={{ $json.caption }}",
+            "URL": "={{ $json.url }}",
+            "Detected At": "={{ $now.toISO() }}",
+            "Status": "New"
+          },
+          "matchingColumns": [], "schema": []
+        },
+        "options": { "typecast": true }
+      },
+      "id": "alert", "name": "Log alert", "type": "n8n-nodes-base.airtable", "typeVersion": 2.1, "position": [1100, 300],
+      "credentials": { "airtableTokenApi": { "id": "v8nbb55IZ67wnXmz", "name": "NYX Airtable" } }
+    }
+  ],
+  "connections": {
+    "Daily 8am": { "main": [[{ "node": "Watched profiles", "type": "main", "index": 0 }]] },
+    "Watched profiles": { "main": [[{ "node": "Collect handles", "type": "main", "index": 0 }]] },
+    "Collect handles": { "main": [[{ "node": "App: Radar scan", "type": "main", "index": 0 }]] },
+    "App: Radar scan": { "main": [[{ "node": "Split breakouts", "type": "main", "index": 0 }]] },
+    "Split breakouts": { "main": [[{ "node": "Log alert", "type": "main", "index": 0 }]] }
+  },
+  "settings": {}
+}
