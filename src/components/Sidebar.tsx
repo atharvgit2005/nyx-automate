@@ -13,6 +13,7 @@ import {
     TrendingUp,
     Target,
     Mic,
+    Wand2,
     MoreHorizontal,
     LogOut
 } from 'lucide-react';
@@ -21,6 +22,7 @@ export const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Image Studio', href: '/dashboard/studio', icon: Sparkles },
     { name: 'Copywriter', href: '/dashboard/copy', icon: PenLine },
+    { name: 'Content Factory', href: '/dashboard/content', icon: Wand2 },
     { name: 'Leads', href: '/dashboard/leads', icon: Target },
     { name: 'Brand Analysis', href: '/dashboard/analysis', icon: BrainCircuit },
     { name: 'Trends', href: '/dashboard/trends', icon: TrendingUp },
