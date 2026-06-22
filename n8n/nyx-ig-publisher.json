@@ -1,0 +1,71 @@
+{
+  "name": "NYX — IG Publisher (in-house, Graph API)",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [ { "field": "minutes", "minutesInterval": 5 } ] } },
+      "id": "sched", "name": "Every 5 min", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "__rl": true, "value": "appcVqNbt8fyF1Dxv", "mode": "id" },
+        "table": { "__rl": true, "value": "tblQMrqBLw11lr8kF", "mode": "id" },
+        "filterByFormula": "AND({Status}='Scheduled', {Type}='Image', {Media URL}!='', IS_BEFORE({Scheduled At}, NOW()))",
+        "options": {}
+      },
+      "id": "due", "name": "Find due posts", "type": "n8n-nodes-base.airtable", "typeVersion": 2.1, "position": [220, 300],
+      "credentials": { "airtableTokenApi": { "id": "v8nbb55IZ67wnXmz", "name": "NYX Airtable" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/__IG_USER_ID__/media",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [
+          { "name": "image_url", "value": "={{ $json['Media URL'] }}" },
+          { "name": "caption", "value": "={{ $json.Caption }}" }
+        ] },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "container", "name": "Graph: create container", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/__IG_USER_ID__/media_publish",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [
+          { "name": "creation_id", "value": "={{ $json.id }}" }
+        ] },
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "publish", "name": "Graph: publish", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": { "__rl": true, "value": "appcVqNbt8fyF1Dxv", "mode": "id" },
+        "table": { "__rl": true, "value": "tblQMrqBLw11lr8kF", "mode": "id" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Find due posts').item.json.id }}",
+            "Status": "={{ $json.id ? 'Published' : 'Failed' }}",
+            "Result": "={{ $json.id ? ('IG media ' + $json.id) : JSON.stringify($json).slice(0,400) }}"
+          },
+          "matchingColumns": ["id"], "schema": []
+        },
+        "options": { "typecast": true }
+      },
+      "id": "mark", "name": "Mark result", "type": "n8n-nodes-base.airtable", "typeVersion": 2.1, "position": [880, 300],
+      "credentials": { "airtableTokenApi": { "id": "v8nbb55IZ67wnXmz", "name": "NYX Airtable" } }
+    }
+  ],
+  "connections": {
+    "Every 5 min": { "main": [[{ "node": "Find due posts", "type": "main", "index": 0 }]] },
+    "Find due posts": { "main": [[{ "node": "Graph: create container", "type": "main", "index": 0 }]] },
+    "Graph: create container": { "main": [[{ "node": "Graph: publish", "type": "main", "index": 0 }]] },
+    "Graph: publish": { "main": [[{ "node": "Mark result", "type": "main", "index": 0 }]] }
+  },
+  "settings": {}
+}

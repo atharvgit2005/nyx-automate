@@ -1,0 +1,32 @@
+{
+  "name": "NYX — Calendar add (queue a post)",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "nyx-calendar-add", "responseMode": "lastNode", "options": {} },
+      "id": "wh", "name": "Webhook (post)", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [0, 300], "webhookId": "nyx-calendar-add"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "__rl": true, "value": "appcVqNbt8fyF1Dxv", "mode": "id" },
+        "table": { "__rl": true, "value": "tblQMrqBLw11lr8kF", "mode": "id" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Caption": "={{ ($json.body && $json.body.caption) || $json.caption }}",
+            "Media URL": "={{ ($json.body && $json.body.mediaUrl) || $json.mediaUrl }}",
+            "Type": "={{ (($json.body && $json.body.type) || $json.type) || 'Image' }}",
+            "Scheduled At": "={{ ($json.body && $json.body.scheduledAt) || $json.scheduledAt }}",
+            "Status": "Scheduled"
+          },
+          "matchingColumns": [], "schema": []
+        },
+        "options": { "typecast": true }
+      },
+      "id": "add", "name": "Add to calendar", "type": "n8n-nodes-base.airtable", "typeVersion": 2.1, "position": [240, 300],
+      "credentials": { "airtableTokenApi": { "id": "v8nbb55IZ67wnXmz", "name": "NYX Airtable" } }
+    }
+  ],
+  "connections": { "Webhook (post)": { "main": [[{ "node": "Add to calendar", "type": "main", "index": 0 }]] } },
+  "settings": {}
+}
