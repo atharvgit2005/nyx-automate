@@ -1,0 +1,23 @@
+{
+  "name": "NYX — Free AI (Groq/Gemini)",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "nyx-ai", "responseMode": "lastNode", "options": {} },
+      "id": "webhook", "name": "Webhook (prompt)", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [0, 300], "webhookId": "nyx-ai"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/llm",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ prompt: ($json.body && $json.body.prompt) || $json.prompt, system: ($json.body && $json.body.system) || $json.system, maxTokens: ($json.body && $json.body.maxTokens) || $json.maxTokens }) }}",
+        "options": { "response": { "response": { "neverError": true } }, "timeout": 60000 }
+      },
+      "id": "llm", "name": "Free AI (Groq/Gemini)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [240, 300],
+      "credentials": { "httpHeaderAuth": { "id": "A2qInC7YaPq9T3H2", "name": "NYX engine token" } }
+    }
+  ],
+  "connections": { "Webhook (prompt)": { "main": [[{ "node": "Free AI (Groq/Gemini)", "type": "main", "index": 0 }]] } },
+  "settings": {}
+}
