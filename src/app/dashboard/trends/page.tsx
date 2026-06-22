@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
     Instagram, Search, Heart, MessageCircle, Send, Bookmark,
     Loader2, Sparkles, AlertTriangle, Play, Hash, AtSign,
+    Trophy, Lightbulb, Flame,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
@@ -35,6 +36,13 @@ interface Sentiment {
     provider?: string;
 }
 
+interface WinnerPost {
+    shortcode: string; url: string; ownerUsername: string; caption: string; displayUrl: string;
+    likesCount: number; commentsCount: number; videoViewCount: number; isVideo: boolean;
+    format: string; hook: string; topic: string; whyItWorked: string;
+}
+interface WinnerResult { topPosts: WinnerPost[]; patterns: string[]; recommendations: string[]; scanned: number; provider?: string }
+
 const IG_GRADIENT = 'linear-gradient(45deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)';
 
 function compact(n: number): string {
@@ -61,6 +69,8 @@ export default function Trends() {
     const [error, setError] = useState('');
     const [hasSession, setHasSession] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
+    const [mode, setMode] = useState<'sentiment' | 'winners'>('sentiment');
+    const [winners, setWinners] = useState<WinnerResult | null>(null);
 
     async function scan() {
         const tokens = query.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
@@ -73,6 +83,26 @@ export default function Trends() {
         setLoading(true);
         setError('');
         setScanned(true);
+
+        if (mode === 'winners') {
+            setPosts([]); setWinners(null);
+            try {
+                if (!profiles.length) throw new Error('Winner mining works on profiles — enter @handles (e.g. @nike @adidas).');
+                const res = await fetch('/api/insights/winners', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ handles: profiles, perAccount: limit, topN: 8 }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Winner mining failed');
+                setWinners(data);
+                if (!data.topPosts?.length) setError('No posts found — check the @handles are public.');
+            } catch (e) {
+                setError(e instanceof Error ? e.message : 'Winner mining failed'); setWinners(null);
+            } finally { setLoading(false); }
+            return;
+        }
+
+        setWinners(null);
         try {
             const res = await fetch('/api/scrape/instagram', {
                 method: 'POST',
@@ -106,6 +136,23 @@ export default function Trends() {
                 subtitle="Scan profiles & hashtags, read the room with AI sentiment."
                 icon={<Instagram className="h-7 w-7" style={{ color: '#dc2743' }} />}
             />
+
+            {/* Mode toggle */}
+            <div className="flex gap-2 mb-4">
+                {([['sentiment', 'Read the room'], ['winners', "What's working"]] as const).map(([m, label]) => (
+                    <button
+                        key={m}
+                        onClick={() => { setMode(m); setError(''); }}
+                        className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${mode === m ? 'text-white border-transparent' : 'bg-secondary border-theme text-theme-secondary hover:text-theme-primary'}`}
+                        style={mode === m ? { background: IG_GRADIENT } : undefined}
+                    >
+                        {label}
+                    </button>
+                ))}
+                <span className="self-center text-[11px] text-theme-secondary ml-1">
+                    {mode === 'sentiment' ? 'comments → AI sentiment' : 'rank top posts → why they work'}
+                </span>
+            </div>
 
             {/* Search bar */}
             <div className="bg-card-theme border border-theme rounded-2xl p-4 mb-5">
@@ -177,6 +224,8 @@ export default function Trends() {
                     </div>
                 </>
             )}
+
+            {!loading && winners && winners.topPosts.length > 0 && <WinnersView data={winners} />}
 
             {!loading && !scanned && (
                 <div className="bg-card-theme border border-theme rounded-2xl p-12 flex flex-col items-center text-center">
@@ -305,6 +354,48 @@ function PostCard({ post }: { post: Post }) {
                     <button onClick={analyze} className="text-sm text-amber-600 dark:text-amber-400">Analysis failed — retry</button>
                 )}
                 {state === 'done' && sentiment && <SentimentPanel s={sentiment} />}
+            </div>
+        </div>
+    );
+}
+
+function WinnersView({ data }: { data: WinnerResult }) {
+    return (
+        <div className="space-y-5">
+            {(data.patterns.length > 0 || data.recommendations.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-card-theme border border-theme rounded-2xl p-4">
+                        <div className="flex items-center gap-2 mb-2"><Flame className="h-4 w-4" style={{ color: '#dc2743' }} /><h3 className="font-bold text-theme-primary text-sm">What the winners share</h3></div>
+                        <ul className="space-y-1.5">{data.patterns.map((x, i) => <li key={i} className="text-sm text-theme-secondary flex gap-2"><span style={{ color: '#dc2743' }}>•</span>{x}</li>)}</ul>
+                    </div>
+                    <div className="bg-card-theme border border-theme rounded-2xl p-4">
+                        <div className="flex items-center gap-2 mb-2"><Lightbulb className="h-4 w-4 text-amber-500" /><h3 className="font-bold text-theme-primary text-sm">Copy this in your content</h3></div>
+                        <ul className="space-y-1.5">{data.recommendations.map((x, i) => <li key={i} className="text-sm text-theme-secondary flex gap-2"><span className="text-amber-500">▸</span>{x}</li>)}</ul>
+                    </div>
+                </div>
+            )}
+            <div>
+                <p className="text-xs text-theme-secondary mb-3 flex items-center gap-1.5"><Trophy className="h-3.5 w-3.5" /> top {data.topPosts.length} of {data.scanned} scanned, by engagement</p>
+                <div className="space-y-3">
+                    {data.topPosts.map((p, i) => (
+                        <a key={p.shortcode} href={p.url} target="_blank" rel="noreferrer" className="flex gap-3 bg-card-theme border border-theme rounded-2xl p-3 hover:border-[#dc2743]/40 transition-colors">
+                            <span className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: IG_GRADIENT }}>{i + 1}</span>
+                            <div className="shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-secondary">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                {p.displayUrl ? <img src={p.displayUrl} referrerPolicy="no-referrer" loading="lazy" alt="" className="w-full h-full object-cover" /> : null}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-semibold text-theme-primary">@{p.ownerUsername}</span>
+                                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary text-theme-secondary border border-theme">{p.format}</span>
+                                    <span className="text-xs text-theme-secondary">{compact(p.likesCount)} likes · {compact(p.commentsCount)} comments{p.videoViewCount ? ` · ${compact(p.videoViewCount)} views` : ''}</span>
+                                </div>
+                                {p.hook && <p className="text-sm text-theme-primary mt-1 line-clamp-1">{p.hook}</p>}
+                                {p.whyItWorked && <p className="text-xs text-theme-secondary mt-0.5">{p.whyItWorked}</p>}
+                            </div>
+                        </a>
+                    ))}
+                </div>
             </div>
         </div>
     );
