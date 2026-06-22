@@ -1,0 +1,599 @@
+{
+  "name": "NYX \u2014 Instagram Audience Intelligence (FREE: own scraper + free LLM)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nyx-instagram-free",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (Airtable trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        300
+      ],
+      "webhookId": "nyx-instagram-free"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "id": "={{ $json.query.recordId }}",
+        "options": {}
+      },
+      "id": "get-automation",
+      "name": "Get Automation Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        60,
+        300
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Webhook (Airtable trigger)').item.json.query.recordId }}",
+            "Status": "\u2699\ufe0f Running"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "status-running",
+      "name": "Status \u2192 Running",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        280,
+        300
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $('Get Automation Record').item.json['Social Channel'] }}",
+              "rightValue": "Instagram",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-instagram",
+      "name": "If: Channel = Instagram",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblTmDxHZoXPDYRR2",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Channel}='Instagram',{Active}='Active')",
+        "options": {}
+      },
+      "id": "search-inputs",
+      "name": "Search Inputs (IG, Active)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split Active Instagram inputs into hashtags vs profiles; carry post count.\nconst hashtags = [];\nconst profiles = [];\nfor (const item of items) {\n  const type = String(item.json.Type || '');\n  const value = item.json['Hashtag/ Username'] || item.json['Hashtag/Username'] || '';\n  if (!value) continue;\n  if (type.includes('Profile')) profiles.push(value);\n  else if (type.includes('Hashtag')) hashtags.push(String(value).replace(/^#/, ''));\n}\nconst rec = $('Get Automation Record').first().json;\nconst numPosts = Number(rec['Quantity to Scrape']) || 12;\nreturn [{ json: { hashtags, profiles, numPosts } }];"
+      },
+      "id": "format-inputs",
+      "name": "Format Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/scrape/instagram",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'discover', hashtags: $json.hashtags, profiles: $json.profiles, limit: $json.numPosts }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "discover",
+      "name": "App: Discover posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "A2qInC7YaPq9T3H2",
+          "name": "NYX engine token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The /api/scrape/instagram discover call returns { posts: [...] }.\n// Split into one item per post for the rest of the pipeline.\nconst posts = $json.posts || [];\nreturn posts.map((p) => ({ json: p }));"
+      },
+      "id": "split-posts",
+      "name": "Split posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1380,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "^https://www\\.instagram\\.com/(p|reel)/[^/]+/?$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "filter-posts",
+      "name": "Filter valid posts",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1600,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/scrape/instagram",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'comments', url: $json.url, limit: 15 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "comments",
+      "name": "App: Comments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "A2qInC7YaPq9T3H2",
+          "name": "NYX engine token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over ALL items (httpRequest ran 1:1 per filtered post, so index pairs).\nconst comments = $input.all();\nconst posts = $('Filter valid posts').all();\nreturn comments.map((c, i) => ({ json: { ...(posts[i] ? posts[i].json : {}),\n  concatenated_text: c.json.concatenated_text || '',\n  comments_scraped: (c.json.comments || []).length } }));"
+      },
+      "id": "attach-comments",
+      "name": "Attach comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/insights/sentiment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ caption: $json.caption, comments: $json.concatenated_text }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "sentiment",
+      "name": "App: Sentiment (free LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2260,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "A2qInC7YaPq9T3H2",
+          "name": "NYX engine token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over ALL items; sentiment ran 1:1 per Attach-comments item.\nconst sent = $input.all();\nconst posts = $('Attach comments').all();\nreturn sent.map((s, i) => ({ json: { ...(posts[i] ? posts[i].json : {}), sentiment: {\n  overall_sentiment: s.json.overall_sentiment ?? null,\n  tool_usefulness: s.json.tool_usefulness ?? null,\n  common_questions: Array.isArray(s.json.common_questions) ? s.json.common_questions : [],\n  key_insights: s.json.key_insights || '' } } }));"
+      },
+      "id": "attach-sentiment",
+      "name": "Attach sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblZ96JY7nZTFFnWg",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.id }}",
+            "Users": "={{ $json.ownerUsername }}",
+            "Cover": "={{ $json.displayUrl ? [{ url: $json.displayUrl }] : [] }}",
+            "Media": "={{ $json.videoUrl ? [{ url: $json.videoUrl }] : [] }}",
+            "Caption": "={{ $json.caption }}",
+            "Views": "={{ $json.videoViewCount }}",
+            "Likes": "={{ $json.likesCount }}",
+            "Comments": "={{ $json.commentsCount }}",
+            "Duration": "={{ $json.videoDuration }}",
+            "Height": "={{ $json.dimensionsHeight }}",
+            "Width": "={{ $json.dimensionsWidth }}",
+            "Video Created Time": "={{ $json.timestamp }}",
+            "Music Name": "={{ $json.musicName }}",
+            "Music Author": "={{ $json.musicAuthor }}",
+            "Hashtags": "={{ ($json.hashtags || []).length ? '#' + $json.hashtags.join('\\n#') : '' }}",
+            "Channel": "Instagram",
+            "Overall Sentiment": "={{ $json.sentiment.overall_sentiment }}",
+            "Tool Helpfulness": "={{ $json.sentiment.tool_usefulness }}",
+            "Common Questions": "={{ ($json.sentiment.common_questions || []).join('\\n') }}",
+            "Key Insights": "={{ $json.sentiment.key_insights }}",
+            "Sentiment Status": "Complete"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "create-record",
+      "name": "Create Audience Intelligence row",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2700,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Webhook (Airtable trigger)').item.json.query.recordId }}",
+            "Status": "\u2705 Completed",
+            "Run Automation": false,
+            "Last Run": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "status-completed",
+      "name": "Status \u2192 Completed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2920,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook (Airtable trigger)": {
+      "main": [
+        [
+          {
+            "node": "Get Automation Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Automation Record": {
+      "main": [
+        [
+          {
+            "node": "Status \u2192 Running",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status \u2192 Running": {
+      "main": [
+        [
+          {
+            "node": "If: Channel = Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Channel = Instagram": {
+      "main": [
+        [
+          {
+            "node": "Search Inputs (IG, Active)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Search Inputs (IG, Active)": {
+      "main": [
+        [
+          {
+            "node": "Format Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Inputs": {
+      "main": [
+        [
+          {
+            "node": "App: Discover posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "App: Discover posts": {
+      "main": [
+        [
+          {
+            "node": "Split posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split posts": {
+      "main": [
+        [
+          {
+            "node": "Filter valid posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter valid posts": {
+      "main": [
+        [
+          {
+            "node": "App: Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "App: Comments": {
+      "main": [
+        [
+          {
+            "node": "Attach comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach comments": {
+      "main": [
+        [
+          {
+            "node": "App: Sentiment (free LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "App: Sentiment (free LLM)": {
+      "main": [
+        [
+          {
+            "node": "Attach sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach sentiment": {
+      "main": [
+        [
+          {
+            "node": "Create Audience Intelligence row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Audience Intelligence row": {
+      "main": [
+        [
+          {
+            "node": "Status \u2192 Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "active": false
+}

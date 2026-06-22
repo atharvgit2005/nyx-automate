@@ -30,19 +30,25 @@ function LoginContent() {
     }, [status, session, router, callbackUrl]);
 
     return (
-        <div className="min-h-screen bg-page flex items-center justify-center px-4">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen bg-page flex items-center justify-center px-4 relative overflow-hidden">
+            {/* halftone corner accents */}
+            <div className="halftone absolute -top-10 -left-10 w-64 h-64 text-[var(--primary)] pointer-events-none" aria-hidden />
+            <div className="halftone absolute -bottom-10 -right-10 w-72 h-72 text-[var(--secondary)] pointer-events-none" aria-hidden />
+
+            <div className="w-full max-w-sm relative">
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-12 h-12 relative mb-5">
+                    <span className="sticker sticker-tilt text-[var(--primary)] mb-5">EST · INTERNAL ONLY</span>
+                    <div className="w-12 h-12 relative mb-3">
                         <Image src="/logo/NYX-Logo.png" alt="NYX Studio" width={120} height={48} unoptimized className="h-full w-full object-contain" />
                     </div>
-                    <h1 className="text-2xl font-bold text-theme-primary">Sign in to NYX</h1>
-                    <p className="mt-2 text-sm text-theme-secondary max-w-xs">
+                    <h1 className="font-display text-6xl text-theme-primary">NYX</h1>
+                    <p className="font-display text-lg text-[var(--primary)] -mt-1">Studio Engine</p>
+                    <p className="mt-4 text-sm text-theme-secondary max-w-xs">
                         Internal creative workspace. Access is limited to the NYX team.
                     </p>
                 </div>
 
-                <div className="mt-8 bg-card-theme border border-theme rounded-2xl p-6">
+                <div className="mt-7 bg-card-theme border-2 border-theme rounded-2xl p-6">
                     {error && (
                         <p className="mb-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
                             {error}
@@ -52,7 +58,7 @@ function LoginContent() {
                     <button
                         onClick={() => { setLoading(true); signIn('google', { callbackUrl }); }}
                         disabled={loading}
-                        className="w-full flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl bg-white text-black font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+                        className="w-full flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl bg-white text-black font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
                     >
                         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
@@ -64,7 +70,7 @@ function LoginContent() {
                     </button>
                 </div>
 
-                <p className="mt-6 text-center text-xs text-theme-secondary">NYX Studio · internal tool</p>
+                <p className="mt-6 text-center text-[11px] uppercase tracking-[0.2em] text-theme-secondary">NYX Studio · {new Date().getFullYear()}</p>
             </div>
         </div>
     );

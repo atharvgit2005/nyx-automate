@@ -135,7 +135,15 @@ model Lead {
   score        Int          @default(0)
   signals      String[]
   status       String       @default("new") // new | verified | contacted | replied | won | dead
+  temperature  String? // hot | warm | cold
   emailValid   Boolean?
+  // Client-finder / outreach (assessProspect)
+  igHandle     String?
+  igFollowers  String? // formatted e.g. "15.2k"
+  igPostCount  Int          @default(0)
+  opportunity  Int          @default(0) // 1-100, higher = weaker presence = better prospect
+  weaknesses   String?
+  pitch        String?
   brandId      String? // TODO: scope when workspaces exist
   queryId      String?
   query        ScrapeQuery? @relation(fields: [queryId], references: [id], onDelete: SetNull)

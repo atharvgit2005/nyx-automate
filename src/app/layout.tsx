@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Barlow_Condensed, Space_Grotesk, Work_Sans } from "next/font/google";
+import { Outfit, Barlow_Condensed, Space_Grotesk, Work_Sans, Anton } from "next/font/google";
 import "./globals.css";
 import GlobalAnimations from "@/components/GlobalAnimations";
 import AuthProvider from '@/components/AuthProvider'
@@ -29,6 +29,14 @@ const spaceGrotesk = Space_Grotesk({
 const workSans = Work_Sans({
   subsets: ["latin"],
   variable: '--font-work-sans',
+  display: 'swap',
+});
+
+// Chunky retro poster display face (VHS / zine headlines).
+const anton = Anton({
+  subsets: ["latin"],
+  weight: ['400'],
+  variable: '--font-anton',
   display: 'swap',
 });
 
@@ -68,7 +76,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${barlowCondensed.variable} ${spaceGrotesk.variable} ${workSans.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${barlowCondensed.variable} ${spaceGrotesk.variable} ${workSans.variable} ${anton.variable}`}>
       <body className="font-sans antialiased">
         <SchemaOrg schema={[organizationSchema, websiteSchema]} />
         <AuthProvider>

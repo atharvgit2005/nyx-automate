@@ -1,0 +1,64 @@
+{
+  "name": "NYX — Lead pipeline (OSM → ingest)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nyx-leads",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (from app)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "nyx-leads"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gather leads from OpenStreetMap. Geocode the city (Nominatim) -> bounding box,\n// then query Overpass by bbox. Both calls go through n8n's own HTTP helper, so we\n// control the exact request (the built-in HTTP node was getting 406'd by Overpass).\nconst body = $json.body || $json;\nconst raw = String(body.text || '');\nconst text = raw.toLowerCase();\nconst TAGS = [[/dentist|dental/, 'amenity=dentist'],[/cafe|coffee/, 'amenity=cafe'],[/restaurant|dining/, 'amenity=restaurant'],[/gym|fitness/, 'leisure=fitness_centre'],[/salon|beauty|barber/, 'shop=beauty'],[/hotel/, 'tourism=hotel'],[/clinic|hospital/, 'amenity=clinic']];\nlet tag = 'shop';\nfor (const [re, t] of TAGS) { if (re.test(text)) { tag = t; break; } }\nconst m = raw.match(/\\bin\\s+(.+)$/i);\nconst city = (m ? m[1] : (body.region || '')).trim();\nconst [k, v] = tag.includes('=') ? tag.split('=') : [tag, null];\nconst sel = v ? `[\"${k}\"=\"${v}\"]` : `[\"${k}\"]`;\nconst UA = 'nyx-automate-leads/1.0';\nlet elements = [];\nif (city) {\n  const geo = await this.helpers.httpRequest({ method: 'GET', url: 'https://nominatim.openstreetmap.org/search', qs: { q: city, format: 'json', limit: 1 }, headers: { 'User-Agent': UA }, json: true });\n  const bb = Array.isArray(geo) && geo[0] && geo[0].boundingbox;\n  if (bb) {\n    const [s, n, w, e] = bb;\n    const ql = `[out:json][timeout:25];(node${sel}(${s},${w},${n},${e});way${sel}(${s},${w},${n},${e}););out center 50;`;\n    const ov = await this.helpers.httpRequest({ method: 'GET', url: 'https://overpass-api.de/api/interpreter', qs: { data: ql }, headers: { 'User-Agent': UA, 'Accept': 'application/json' }, json: true });\n    elements = (ov && ov.elements) || [];\n  }\n}\nreturn [{ json: { elements, runId: body.runId || null, queryId: body.queryId || null } }];"
+      },
+      "id": "gather",
+      "name": "Gather (Nominatim + Overpass)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map Overpass elements -> normalized leads.\nconst els = ($json.elements || []);\nconst leads = [];\nfor (const e of els) {\n  const t = e.tags || {};\n  if (!t.name) continue;\n  const addr = [t['addr:housenumber'], t['addr:street'], t['addr:city']].filter(Boolean).join(', ');\n  leads.push({\n    source: 'openstreetmap',\n    sourceId: `${e.type}/${e.id}`,\n    name: t.name,\n    website: t.website || t['contact:website'] || undefined,\n    phone: t.phone || t['contact:phone'] || undefined,\n    instagram: t['contact:instagram'] || undefined,\n    address: addr || undefined,\n    category: t.amenity || t.shop || t.tourism || t.leisure || undefined,\n  });\n}\nreturn [{ json: { runId: $json.runId, queryId: $json.queryId, leads } }];\n// TODO (own it): add Split-in-Batches + HTTP to visit each lead.website and\n// extract the Instagram link / email before ingest (see n8n/README.md)."
+      },
+      "id": "to-leads",
+      "name": "To leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/leads/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "ingest",
+      "name": "POST to app ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook (from app)": { "main": [[{ "node": "Gather (Nominatim + Overpass)", "type": "main", "index": 0 }]] },
+    "Gather (Nominatim + Overpass)": { "main": [[{ "node": "To leads", "type": "main", "index": 0 }]] },
+    "To leads": { "main": [[{ "node": "POST to app ingest", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

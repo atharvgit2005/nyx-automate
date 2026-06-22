@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 const COLUMNS: Array<keyof Lead> = [
     'name', 'website', 'email', 'phone', 'contactName', 'contactTitle',
-    'instagram', 'category', 'address', 'score', 'status', 'emailValid', 'source',
+    'instagram', 'category', 'address', 'score', 'status', 'temperature', 'emailValid', 'source',
 ];
 
 function csvCell(value: unknown): string {

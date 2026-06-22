@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Sparkles, Wand2, ImageIcon, Loader2, Download } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 const MODELS = [
     { id: 'flux-free', name: 'Flux', vendor: 'Free · Pollinations', note: 'Free & unlimited, Higgsfield-style look', tag: 'free' },
@@ -139,15 +140,13 @@ export default function ImageStudio() {
 
     return (
         <div>
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-theme-primary flex items-center gap-3">
-                    <Sparkles className="h-7 w-7 text-purple-500" />
-                    Image Studio
-                </h1>
-                <p className="mt-2 text-theme-secondary">
-                    Build a prompt, pick a model, and generate. Templates give you a head start.
-                </p>
-            </div>
+            <PageHeader
+                index="01"
+                kicker="Create"
+                title="Image Studio"
+                subtitle="Build a prompt, pick a model, and generate. Templates give you a head start."
+                icon={<Sparkles className="h-8 w-8 text-purple-500" />}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 {/* Controls */}

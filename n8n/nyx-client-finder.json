@@ -1,0 +1,57 @@
+{
+  "name": "NYX — Client finder (discover → assess → pitch → Airtable)",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "nyx-client-finder", "responseMode": "lastNode", "options": {} },
+      "id": "webhook", "name": "Webhook (query)", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [-100, 300], "webhookId": "nyx-client-finder"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:2005/api/leads/prospect",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: ($json.body && $json.body.query) || $json.query, limit: (($json.body && $json.body.limit) || $json.limit) || 6 }) }}",
+        "options": { "response": { "response": { "neverError": true } }, "timeout": 120000 }
+      },
+      "id": "prospect", "name": "App: Prospect", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [140, 300],
+      "credentials": { "httpHeaderAuth": { "id": "A2qInC7YaPq9T3H2", "name": "NYX engine token" } }
+    },
+    {
+      "parameters": { "jsCode": "return ($json.prospects || []).map((p) => ({ json: p }));" },
+      "id": "split", "name": "Split prospects", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [380, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": { "__rl": true, "value": "appcVqNbt8fyF1Dxv", "mode": "id" },
+        "table": { "__rl": true, "value": "tblbKsDHkius45nEf", "mode": "id" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Business": "={{ $json.name }}",
+            "Website": "={{ $json.website }}",
+            "Category": "={{ $json.category }}",
+            "IG Handle": "={{ $json.igHandle }}",
+            "Posts": "={{ $json.igPostCount }}",
+            "Opportunity": "={{ $json.opportunity }}",
+            "Weaknesses": "={{ $json.weaknesses }}",
+            "Pitch": "={{ $json.pitch }}",
+            "Status": "New",
+            "Source": "={{ $json.igFollowers ? ('@'+$json.igHandle+' · '+$json.igFollowers+' followers') : ($json.igHandle ? ('@'+$json.igHandle+' (unreachable)') : 'No Instagram found') }}"
+          },
+          "matchingColumns": [], "schema": []
+        },
+        "options": { "typecast": true }
+      },
+      "id": "create", "name": "Outreach row", "type": "n8n-nodes-base.airtable", "typeVersion": 2.1, "position": [620, 300],
+      "credentials": { "airtableTokenApi": { "id": "v8nbb55IZ67wnXmz", "name": "NYX Airtable" } }
+    }
+  ],
+  "connections": {
+    "Webhook (query)": { "main": [[{ "node": "App: Prospect", "type": "main", "index": 0 }]] },
+    "App: Prospect": { "main": [[{ "node": "Split prospects", "type": "main", "index": 0 }]] },
+    "Split prospects": { "main": [[{ "node": "Outreach row", "type": "main", "index": 0 }]] }
+  },
+  "settings": {}
+}

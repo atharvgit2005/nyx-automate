@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateText } from '@/lib/llm/text';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/config/admins';
@@ -21,34 +21,18 @@ export async function POST(req: Request) {
     if (!prompt || !String(prompt).trim()) {
         return NextResponse.json({ error: 'Write a rough idea first.' }, { status: 400 });
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
-        return NextResponse.json({ error: 'ANTHROPIC_API_KEY is not set on the server.' }, { status: 500 });
-    }
-
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
     try {
-        const msg = await anthropic.messages.create({
-            model: 'claude-opus-4-8',
-            max_tokens: 1024,
+        const { text: refined } = await generateText({
             system: SYSTEM,
-            messages: [{ role: 'user', content: String(prompt) }],
+            prompt: `Rough idea: ${String(prompt)}`,
+            maxTokens: 400,
         });
-        const refined = msg.content
-            .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-            .map((b) => b.text)
-            .join('')
-            .trim();
-        if (!refined) {
-            return NextResponse.json({ error: 'No refined prompt was returned.' }, { status: 502 });
-        }
+        if (!refined) return NextResponse.json({ error: 'No refined prompt was returned.' }, { status: 502 });
         return NextResponse.json({ prompt: refined });
     } catch (err: unknown) {
-        const e = err as { message?: string; status?: number };
-        console.error('STUDIO_REFINE_ERROR:', e?.message);
-        return NextResponse.json(
-            { error: e?.message || 'Prompt refinement failed.' },
-            { status: e?.status || 500 },
-        );
+        const msg = err instanceof Error ? err.message : 'Prompt refinement failed.';
+        const friendly = msg.startsWith('RATE_LIMITED') ? 'Gemini is rate-limited — wait a moment and try again.' : msg;
+        console.error('STUDIO_REFINE_ERROR:', msg);
+        return NextResponse.json({ error: friendly }, { status: 500 });
     }
 }

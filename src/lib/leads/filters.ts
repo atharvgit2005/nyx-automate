@@ -10,6 +10,12 @@ export function buildLeadWhere(sp: URLSearchParams): Prisma.LeadWhereInput {
     const source = sp.get('source');
     if (source) where.source = source;
 
+    const queryId = sp.get('queryId');
+    if (queryId) where.queryId = queryId;
+
+    const temperature = sp.get('temperature');
+    if (temperature) where.temperature = temperature;
+
     const minScore = Number(sp.get('minScore'));
     if (Number.isFinite(minScore) && minScore > 0) where.score = { gte: minScore };
 

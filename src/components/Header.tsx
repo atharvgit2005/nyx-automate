@@ -18,8 +18,8 @@ export default function Header() {
     const { toggleSidebar } = useSidebar();
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 header-bg-theme backdrop-blur-xl h-20 flex items-center justify-between px-4 sm:px-6 transition-all duration-300 border-b border-theme">
-            <div className="flex items-center gap-3 sm:gap-4 mt-2">
+        <header className="fixed top-0 left-0 right-0 z-50 header-bg-theme backdrop-blur-xl h-16 flex items-center justify-between px-4 sm:px-6 transition-all duration-300 border-b-2 border-theme">
+            <div className="flex items-center gap-2 sm:gap-3">
                 {/* Mobile Toggle */}
                 <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -40,7 +40,7 @@ export default function Header() {
                     <div className="w-8 h-8 relative flex-shrink-0">
                         <Image src="/logo/NYX-Logo.png" alt="NYX Studio logo" width={120} height={40} className="h-full w-full object-contain" unoptimized sizes="32px" />
                     </div>
-                    <span className="text-lg sm:text-xl font-bold tracking-tight text-theme-primary whitespace-nowrap">NYX</span>
+                    <span className="font-display text-2xl text-theme-primary whitespace-nowrap leading-none">NYX</span>
                 </Link>
             </div>
 
@@ -78,6 +78,7 @@ export default function Header() {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    <span className="sticker sticker-tilt text-theme-secondary hidden sm:inline-flex">Internal · Engine</span>
                     <ThemeToggle />
                     <button className="relative p-2 text-theme-secondary hover:text-theme-primary hover:bg-card-hover rounded-full transition-colors group">
                         <span className="sr-only">Notifications</span>
@@ -89,7 +90,7 @@ export default function Header() {
 
             {/* Mobile Menu Overlay */}
             {mobileMenuOpen && (
-                <div className="absolute top-20 left-0 w-full header-bg-theme backdrop-blur-xl border-b border-theme shadow-2xl animate-fade-in md:hidden">
+                <div className="absolute top-16 left-0 w-full header-bg-theme backdrop-blur-xl border-b border-theme shadow-2xl animate-fade-in md:hidden">
                     <div className="px-4 py-6 space-y-2">
                         {navigation.map((item) => {
                             const isActive = pathname === item.href;

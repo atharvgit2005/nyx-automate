@@ -1,0 +1,648 @@
+{
+  "name": "NYX \u2014 Instagram Audience Intelligence (Apify \u2192 sentiment \u2192 Airtable)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nyx-instagram",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (Airtable trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        300
+      ],
+      "webhookId": "nyx-instagram"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "id": "={{ $json.query.recordId }}",
+        "options": {}
+      },
+      "id": "get-automation",
+      "name": "Get Automation Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        60,
+        300
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Webhook (Airtable trigger)').item.json.query.recordId }}",
+            "Status": "\u2699\ufe0f Running"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "status-running",
+      "name": "Status \u2192 Running",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        280,
+        300
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $('Get Automation Record').item.json['Social Channel'] }}",
+              "rightValue": "Instagram",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-instagram",
+      "name": "If: Channel = Instagram",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblTmDxHZoXPDYRR2",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Channel}='Instagram',{Active}='Active')",
+        "options": {}
+      },
+      "id": "search-inputs",
+      "name": "Search Inputs (IG, Active)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split the Active Instagram inputs into hashtags vs profiles, and carry through\n// how many posts to scrape (from the Automation record's `Quantity to Scrape`).\n// NOTE: the original spec referenced `numPosts` in the scraper bodies but never\n// produced it here \u2014 that was a dead reference. We resolve it from the trigger record.\nconst hashtags = [];\nconst profiles = [];\nfor (const item of items) {\n  const type = String(item.json.Type || '');\n  const value = item.json['Hashtag/ Username'] || item.json['Hashtag/Username'] || '';\n  if (!value) continue;\n  if (type.includes('Profile')) profiles.push(value);\n  else if (type.includes('Hashtag')) hashtags.push(String(value).replace(/^#/, ''));\n}\nconst rec = $('Get Automation Record').first().json;\nconst numPosts = Number(rec['Quantity to Scrape']) || 12;\nreturn [{ json: { hashtags, profiles, numPosts } }];"
+      },
+      "id": "format-inputs",
+      "name": "Format Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~instagram-hashtag-scraper/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ hashtags: $json.hashtags, resultsType: 'posts', resultsLimit: $json.numPosts }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "scrape-hashtags",
+      "name": "Apify: Hashtag Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~instagram-post-scraper/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ username: $json.profiles, resultsLimit: $json.numPosts, skipPinnedPosts: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "scrape-profiles",
+      "name": "Apify: Profile Post Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "merge-posts",
+      "name": "Merge posts",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "^https://www\\.instagram\\.com/(p|reel)/[^/]+/?$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "filter-posts",
+      "name": "Filter valid posts",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1620,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect the post URLs into a single array for the comment scraper.\nconst postURLs = [];\nfor (const item of items) {\n  if (item.json.url) postURLs.push(item.json.url);\n}\nreturn [{ json: { postURLs } }];"
+      },
+      "id": "collect-urls",
+      "name": "Collect post URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ directUrls: $json.postURLs, includeNestedComments: false, resultsLimit: 15 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "scrape-comments",
+      "name": "Apify: Comment Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2060,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Join comments back onto their post by matching the comment's `postUrl`\n// (verified 2026: the comment scraper output key is lowercase `postUrl`, NOT\n// `postURL`). This replaces the old Summarize-by-postURL step, which both used the\n// wrong key and relied on index-pairing that didn't line up with the post records.\nconst comments = $input.all().map(i => i.json);\nconst posts = $('Filter valid posts').all().map(i => i.json);\nconst byUrl = {};\nfor (const c of comments) {\n  const u = c.postUrl || c.postURL;\n  const t = (c.text || '').trim();\n  if (!u || !t) continue;\n  (byUrl[u] = byUrl[u] || []).push(t);\n}\nconst out = [];\nfor (const p of posts) {\n  const texts = byUrl[p.url] || [];\n  out.push({ json: { ...p, concatenated_text: texts.join('\\n'), comment_count_scraped: texts.length } });\n}\nreturn out;"
+      },
+      "id": "assemble",
+      "name": "Assemble post + comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-5.1-mini', messages: [ { role: 'system', content: 'You are an audience-intelligence analyst. Read the Instagram comments for one post and return ONLY JSON with: overall_sentiment (integer 1-5), tool_usefulness (integer 1-5, how useful commenters find the tool/topic), common_questions (array of distinct questions asked), key_insights (one-paragraph string).' }, { role: 'user', content: 'Here are the aggregated comments for a single Instagram post:\\n' + ($json.concatenated_text || '(no comments)') + '\\n\\nCaption for context: ' + ($json.caption || '') } ], response_format: { type: 'json_object' } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "sentiment",
+      "name": "Sentiment Analysis (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2500,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over ALL items; sentiment ran 1:1 per Assemble item.\nconst sent = $input.all();\nconst posts = $('Assemble post + comments').all();\nreturn sent.map((s, i) => { const raw = s.json?.choices?.[0]?.message?.content || '{}';\n  let v = {}; try { v = JSON.parse(raw); } catch (e) { v = {}; }\n  return { json: { ...(posts[i] ? posts[i].json : {}), sentiment: {\n    overall_sentiment: v.overall_sentiment ?? null,\n    tool_usefulness: v.tool_usefulness ?? null,\n    common_questions: Array.isArray(v.common_questions) ? v.common_questions : [],\n    key_insights: v.key_insights || '' } } };\n});"
+      },
+      "id": "merge-sentiment",
+      "name": "Attach sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblZ96JY7nZTFFnWg",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.id }}",
+            "Users": "={{ $json.ownerUsername }}",
+            "Cover": "={{ $json.displayUrl ? [{ url: $json.displayUrl }] : [] }}",
+            "Media": "={{ $json.videoUrl ? [{ url: $json.videoUrl }] : [] }}",
+            "Caption": "={{ $json.caption }}",
+            "Views": "={{ $json.videoViewCount }}",
+            "Likes": "={{ $json.likesCount }}",
+            "Comments": "={{ $json.commentsCount }}",
+            "Duration": "={{ $json.videoDuration }}",
+            "Height": "={{ $json.dimensionsHeight }}",
+            "Width": "={{ $json.dimensionsWidth }}",
+            "Video Created Time": "={{ $json.timestamp }}",
+            "Music Name": "={{ $json.musicInfo?.music_info?.music_asset_info?.title }}",
+            "Music Author": "={{ $json.musicInfo?.music_info?.music_asset_info?.display_artist }}",
+            "Hashtags": "={{ ($json.hashtags || []).length ? '#' + $json.hashtags.join('\\n#') : '' }}",
+            "Channel": "Instagram",
+            "Overall Sentiment": "={{ $json.sentiment.overall_sentiment }}",
+            "Tool Helpfulness": "={{ $json.sentiment.tool_usefulness }}",
+            "Common Questions": "={{ ($json.sentiment.common_questions || []).join('\\n') }}",
+            "Key Insights": "={{ $json.sentiment.key_insights }}",
+            "Sentiment Status": "Complete"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "create-record",
+      "name": "Create Audience Intelligence row",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2940,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Webhook (Airtable trigger)').item.json.query.recordId }}",
+            "Status": "\u2705 Completed",
+            "Run Automation": false,
+            "Last Run": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "status-completed",
+      "name": "Status \u2192 Completed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        3160,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook (Airtable trigger)": {
+      "main": [
+        [
+          {
+            "node": "Get Automation Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Automation Record": {
+      "main": [
+        [
+          {
+            "node": "Status \u2192 Running",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status \u2192 Running": {
+      "main": [
+        [
+          {
+            "node": "If: Channel = Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: Channel = Instagram": {
+      "main": [
+        [
+          {
+            "node": "Search Inputs (IG, Active)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Search Inputs (IG, Active)": {
+      "main": [
+        [
+          {
+            "node": "Format Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Inputs": {
+      "main": [
+        [
+          {
+            "node": "Apify: Hashtag Scraper",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Apify: Profile Post Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify: Hashtag Scraper": {
+      "main": [
+        [
+          {
+            "node": "Merge posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify: Profile Post Scraper": {
+      "main": [
+        [
+          {
+            "node": "Merge posts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge posts": {
+      "main": [
+        [
+          {
+            "node": "Filter valid posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter valid posts": {
+      "main": [
+        [
+          {
+            "node": "Collect post URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect post URLs": {
+      "main": [
+        [
+          {
+            "node": "Apify: Comment Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify: Comment Scraper": {
+      "main": [
+        [
+          {
+            "node": "Assemble post + comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble post + comments": {
+      "main": [
+        [
+          {
+            "node": "Sentiment Analysis (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sentiment Analysis (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Attach sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach sentiment": {
+      "main": [
+        [
+          {
+            "node": "Create Audience Intelligence row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Audience Intelligence row": {
+      "main": [
+        [
+          {
+            "node": "Status \u2192 Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "active": false
+}

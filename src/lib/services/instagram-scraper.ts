@@ -248,3 +248,265 @@ function getMockProfile(username: string): ScrapedProfile {
         transcript: createTranscript(username, `${username} (Demo)`, "Creative Technologist • Building next-gen AI tools", "15.2k", posts)
     };
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// FREE Audience-Intelligence scraping (hashtag discovery + comments).
+//
+// This is the free replacement for the paid Apify actors in
+// `n8n/nyx-instagram-intelligence.json`. It reuses Instagram's hidden web API
+// (the same one `scrapeWithIGApi` uses). Two endpoints — hashtag feeds and a
+// post's comments — are gated by Instagram behind a logged-in cookie, so set
+// `IG_SESSIONID` (the `sessionid` cookie from a throwaway account) for those to
+// work. Profile posts and captions work without it; comments/hashtags degrade
+// gracefully to empty when the cookie is missing or expired.
+// ───────────────────────────────────────────────────────────────────────────
+
+const IG_APP_ID = '936619743392459';
+
+export interface NormalizedPost {
+    id: string;
+    shortcode: string;
+    url: string;
+    ownerUsername: string;
+    caption: string;
+    displayUrl: string;
+    videoUrl: string;
+    videoViewCount: number;
+    likesCount: number;
+    commentsCount: number;
+    videoDuration: number;
+    dimensionsHeight: number;
+    dimensionsWidth: number;
+    timestamp: string; // ISO
+    hashtags: string[];
+    musicName: string;
+    musicAuthor: string;
+    source: 'hashtag' | 'profile';
+    sourceInput: string; // the tag or username this post came from
+}
+
+export interface PostComments {
+    url: string;
+    shortcode: string;
+    comments: { text: string; username: string; likeCount: number }[];
+    concatenated_text: string;
+    /** False when comments could not be read (no/expired IG_SESSIONID) so the
+     *  caller knows to fall back to caption-only sentiment. */
+    authed: boolean;
+}
+
+// IG_SESSIONID is needed for comments + hashtags, but it makes the public
+// `web_profile_info` endpoint 302-redirect — so the cookie is opt-in per call.
+function igHeaders(useCookie = true): Record<string, string> {
+    const h: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'X-IG-App-ID': IG_APP_ID,
+        'Accept': '*/*',
+        'Sec-Fetch-Site': 'same-origin',
+        'X-Requested-With': 'XMLHttpRequest',
+    };
+    const sid = process.env.IG_SESSIONID;
+    if (useCookie && sid) h['Cookie'] = `sessionid=${sid}`;
+    return h;
+}
+
+async function igGet(url: string, opts: { timeoutMs?: number; useCookie?: boolean } = {}): Promise<unknown | null> {
+    const { timeoutMs = 12000, useCookie = true } = opts;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const res = await fetch(url, { headers: igHeaders(useCookie), signal: controller.signal });
+        if (res.status !== 200) {
+            console.warn(`[ig] ${res.status} for ${url.split('?')[0]}`);
+            return null;
+        }
+        return await res.json();
+    } catch (e) {
+        console.warn('[ig] fetch failed:', e instanceof Error ? e.message : String(e));
+        return null;
+    } finally {
+        clearTimeout(t);
+    }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function asText(v: any): string {
+    if (!v) return '';
+    if (typeof v === 'string') return v;
+    return v.text || '';
+}
+function num(v: unknown): number {
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
+// Normalize the many slightly-different IG media shapes (hashtag section media,
+// profile timeline node, single-post item) into one Apify-compatible object so
+// the n8n workflow's field mapping barely changes between paid and free.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mediaToPost(m: any, source: 'hashtag' | 'profile', sourceInput: string): NormalizedPost {
+    const code = m.code || m.shortcode || '';
+    const caption = asText(m.caption);
+    const hashtags = Array.from(new Set((caption.match(/#[\wÀ-ɏ]+/g) || []).map((h: string) => h.slice(1))));
+    const img = m.image_versions2?.candidates?.[0]?.url || m.display_url || m.thumbnail_src || '';
+    const vid = m.video_versions?.[0]?.url || m.video_url || '';
+    const music = m.clips_metadata?.music_info?.music_asset_info || {};
+    const epoch = m.taken_at ?? m.taken_at_timestamp;
+    return {
+        id: String(m.pk || m.id || code),
+        shortcode: code,
+        url: code ? `https://www.instagram.com/p/${code}/` : '',
+        ownerUsername: m.user?.username || m.owner?.username || '',
+        caption,
+        displayUrl: img,
+        videoUrl: vid,
+        videoViewCount: num(m.play_count ?? m.view_count ?? m.video_view_count),
+        likesCount: num(m.like_count ?? m.edge_liked_by?.count ?? m.edge_media_preview_like?.count),
+        commentsCount: num(m.comment_count ?? m.edge_media_to_comment?.count),
+        videoDuration: num(m.video_duration),
+        dimensionsHeight: num(m.original_height ?? m.dimensions?.height),
+        dimensionsWidth: num(m.original_width ?? m.dimensions?.width),
+        timestamp: epoch ? new Date(num(epoch) * 1000).toISOString() : '',
+        hashtags,
+        musicName: music.title || '',
+        musicAuthor: music.display_artist || '',
+        source,
+        sourceInput,
+    };
+}
+
+function extractShortcode(s: string): string {
+    const m = String(s).match(/instagram\.com\/(?:p|reel|tv)\/([^/?#]+)/i);
+    if (m) return m[1];
+    if (/^[A-Za-z0-9_-]+$/.test(s)) return s; // already a shortcode
+    return '';
+}
+
+/** Discover recent posts for a hashtag. Needs IG_SESSIONID (IG gates the tag
+ *  feed behind login). Returns [] if not configured / blocked. */
+export async function scrapeHashtagPosts(tag: string, limit = 12): Promise<NormalizedPost[]> {
+    const clean = String(tag).replace(/^#/, '').trim();
+    if (!clean) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = await igGet(`https://www.instagram.com/api/v1/tags/web_info/?tag_name=${encodeURIComponent(clean)}`);
+    const out: NormalizedPost[] = [];
+    const sections = [...(data?.data?.top?.sections || []), ...(data?.data?.recent?.sections || [])];
+    for (const s of sections) {
+        const medias = s?.layout_content?.medias || [];
+        for (const mm of medias) {
+            const m = mm.media || mm;
+            if (m?.code) out.push(mediaToPost(m, 'hashtag', clean));
+            if (out.length >= limit) return out;
+        }
+    }
+    if (!out.length && !process.env.IG_SESSIONID) {
+        console.warn(`[ig] hashtag #${clean}: 0 posts — set IG_SESSIONID to enable hashtag discovery.`);
+    }
+    return out;
+}
+
+/** Recent posts for a profile via the hidden web API (works without login). */
+export async function scrapeProfilePosts(username: string, limit = 12): Promise<NormalizedPost[]> {
+    const clean = String(username).replace(/^@/, '').trim();
+    if (!clean) return [];
+    // No cookie: web_profile_info 302-redirects for authed sessions, but works
+    // fine logged-out.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = await igGet(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(clean)}`, { useCookie: false });
+    const user = data?.data?.user;
+    const owner = user?.username || clean;
+    const edges = user?.edge_owner_to_timeline_media?.edges || [];
+    const out: NormalizedPost[] = [];
+    for (const e of edges.slice(0, limit)) {
+        const n = e.node;
+        if (!n) continue;
+        out.push(mediaToPost({
+            pk: n.id,
+            code: n.shortcode,
+            caption: n.edge_media_to_caption?.edges?.[0]?.node?.text || '',
+            like_count: n.edge_liked_by?.count ?? n.edge_media_preview_like?.count,
+            comment_count: n.edge_media_to_comment?.count,
+            image_versions2: { candidates: [{ url: n.display_url }] },
+            video_versions: n.is_video && n.video_url ? [{ url: n.video_url }] : [],
+            view_count: n.video_view_count,
+            video_duration: n.video_duration,
+            original_height: n.dimensions?.height,
+            original_width: n.dimensions?.width,
+            taken_at: n.taken_at_timestamp,
+            user: { username: owner },
+        }, 'profile', clean));
+    }
+    return out;
+}
+
+/** Discover posts across many hashtags + profiles in parallel. */
+export async function discoverInstagramPosts(opts: { hashtags?: string[]; profiles?: string[]; limit?: number }): Promise<NormalizedPost[]> {
+    const limit = opts.limit ?? 12;
+    const settled = await Promise.allSettled([
+        ...(opts.hashtags || []).map((t) => scrapeHashtagPosts(t, limit)),
+        ...(opts.profiles || []).map((p) => scrapeProfilePosts(p, limit)),
+    ]);
+    return settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+}
+
+// Instagram shortcodes are the media id encoded in base64 (this alphabet).
+// Decoding gives the numeric media pk without any network call.
+const SHORTCODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+function shortcodeToMediaId(code: string): string {
+    // base64 -> big decimal via string arithmetic (media ids exceed Number's
+    // safe range, and BigInt literals need an ES2020 target the repo doesn't use).
+    const digits = [0]; // little-endian decimal digits
+    for (const ch of code) {
+        const val = SHORTCODE_ALPHABET.indexOf(ch);
+        if (val === -1) return '';
+        let carry = val;
+        for (let i = 0; i < digits.length; i++) {
+            const cur = digits[i] * 64 + carry;
+            digits[i] = cur % 10;
+            carry = Math.floor(cur / 10);
+        }
+        while (carry > 0) { digits.push(carry % 10); carry = Math.floor(carry / 10); }
+    }
+    return digits.reverse().join('') || '0';
+}
+
+/** Top comments for a single post. Needs IG_SESSIONID; returns authed=false
+ *  (empty comments) when the cookie is missing/expired so callers fall back to
+ *  caption-only sentiment. */
+export async function scrapePostComments(urlOrCode: string, limit = 15): Promise<PostComments> {
+    const code = extractShortcode(urlOrCode);
+    const base: PostComments = {
+        url: code ? `https://www.instagram.com/p/${code}/` : String(urlOrCode),
+        shortcode: code,
+        comments: [],
+        concatenated_text: '',
+        authed: false,
+    };
+    if (!code) return base;
+
+    // Resolve the numeric media pk directly from the shortcode. Instagram killed
+    // the old `?__a=1` permalink endpoint (now 404), so we decode the shortcode —
+    // it's just the base64 of the media id — and hit the comments API straight.
+    const pk = shortcodeToMediaId(code);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let raw: any[] = [];
+    if (pk) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const c: any = await igGet(`https://www.instagram.com/api/v1/media/${pk}/comments/?can_support_threading=true&permalink_enabled=false`);
+        raw = c?.comments || [];
+    }
+
+    const comments = raw.slice(0, limit).map((c) => ({
+        text: asText(c.text) || String(c.text || ''),
+        username: c.user?.username || '',
+        likeCount: num(c.comment_like_count ?? c.like_count),
+    })).filter((c) => c.text);
+
+    return {
+        url: base.url,
+        shortcode: code,
+        comments,
+        concatenated_text: comments.map((c) => c.text).join('\n'),
+        authed: comments.length > 0 || Boolean(process.env.IG_SESSIONID),
+    };
+}

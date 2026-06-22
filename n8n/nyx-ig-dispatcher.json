@@ -1,0 +1,105 @@
+{
+  "name": "NYX \u2014 IG dispatcher (poll Airtable, free)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Every 2 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appcVqNbt8fyF1Dxv",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblkmpHLA5dxtSQYj",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Run Automation}=1,{Social Channel}='Instagram',{Status}!='\u2699\ufe0f Running')",
+        "options": {}
+      },
+      "id": "search",
+      "name": "Find checked rows",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "v8nbb55IZ67wnXmz",
+          "name": "NYX Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:5678/webhook/nyx-instagram-free?recordId={{ $json.id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "fire",
+      "name": "Run free workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Every 2 min": {
+      "main": [
+        [
+          {
+            "node": "Find checked rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find checked rows": {
+      "main": [
+        [
+          {
+            "node": "Run free workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}
