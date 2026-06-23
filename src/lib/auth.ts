@@ -61,9 +61,7 @@ export const authOptions: AuthOptions = {
         signIn: "/login",
         error: "/login",
     },
-    // Host-only, renamed session cookie in production so a stale
-    // `.nyxstudio.tech`-scoped cookie from the pre-split monorepo can't
-    // shadow it. Dev/preview stays host-only by default.
+    /*
     cookies:
         process.env.NODE_ENV === "production"
             ? {
@@ -79,6 +77,7 @@ export const authOptions: AuthOptions = {
                 },
             }
             : undefined,
+    */
     callbacks: {
         // Allowlist gate: only verified Google emails on the admin list get in.
         async signIn({ user, account, profile }) {
