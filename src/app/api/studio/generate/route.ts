@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/config/admins';
+import { generateImageWithChatGPT } from '@/lib/studio/chatgpt-image-generator';
 
 export const runtime = 'nodejs';
 // Image generation can take a while; give the function headroom.
@@ -43,19 +43,9 @@ async function generateFlux(prompt: string, aspect: string) {
     return `data:image/jpeg;base64,${buf.toString('base64')}`;
 }
 
-// ── OpenAI gpt-image-1 (paid API) ────────────────────────────────────────
+// ── OpenAI gpt-image-1 (automated via ChatGPT cookie) ────────────────────
 async function generateOpenAI(prompt: string, aspect: string) {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set on the server.');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const result = await openai.images.generate({
-        model: 'gpt-image-1',
-        prompt,
-        size: OPENAI_SIZE[aspect] ?? '1024x1024',
-        n: 1,
-    });
-    const b64 = result.data?.[0]?.b64_json;
-    if (!b64) throw new Error('No image was returned by OpenAI.');
-    return `data:image/png;base64,${b64}`;
+    return generateImageWithChatGPT(prompt, aspect);
 }
 
 // ── Gemini "Nano Banana" (free tier) via REST ────────────────────────────

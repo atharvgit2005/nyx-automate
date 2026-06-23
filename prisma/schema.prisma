@@ -154,3 +154,34 @@ model Lead {
   @@index([score])
   @@index([status])
 }
+
+// ── AI Chat Orchestration (Higgsfield-Style Context & Reference Lock) ─────
+
+model OrchestratorSession {
+  id           String                  @id @default(cuid())
+  name         String
+  systemPrompt String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  messages     OrchestratorMessage[]
+  references   OrchestratorReference[]
+}
+
+model OrchestratorMessage {
+  id        String              @id @default(cuid())
+  sessionId String
+  session   OrchestratorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String              // "user" | "assistant"
+  content   String
+  createdAt DateTime            @default(now())
+}
+
+model OrchestratorReference {
+  id        String              @id @default(cuid())
+  sessionId String
+  session   OrchestratorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name      String
+  content   String
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now())
+}

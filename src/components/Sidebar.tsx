@@ -15,11 +15,13 @@ import {
     Mic,
     Wand2,
     MoreHorizontal,
-    LogOut
+    LogOut,
+    MessageSquare
 } from 'lucide-react';
 
 export const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'AI Orchestrator', href: '/dashboard/orchestrator', icon: MessageSquare },
     { name: 'Image Studio', href: '/dashboard/studio', icon: Sparkles },
     { name: 'Copywriter', href: '/dashboard/copy', icon: PenLine },
     { name: 'Content Factory', href: '/dashboard/content', icon: Wand2 },
