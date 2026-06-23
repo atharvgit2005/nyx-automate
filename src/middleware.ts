@@ -5,7 +5,11 @@ import { NextResponse, type NextRequest } from "next/server";
 //   /dashboard/*  → must be logged in (Google + admin allowlist; see src/lib/auth.ts)
 export default async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-    const token = await getToken({ req });
+    const token = await getToken({
+        req,
+        secret: process.env.NEXTAUTH_SECRET,
+        secureCookie: process.env.NODE_ENV === "production"
+    });
 
     if (pathname.startsWith('/dashboard')) {
         if (!token) {
